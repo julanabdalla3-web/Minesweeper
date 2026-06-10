@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="icon.png">
+ <link rel="manifest" href="manifest.json">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Minesweeper</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    background: #008080;
+    font-family: Verdana, Geneva, sans-serif;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  body { padding: 20px 10px 40px; }
+
+  .wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+
+  /* Classic beveled frame */
+  .frame {
+    background: #c0c0c0;
+    border: 3px solid;
+    border-color: #ffffff #808080 #808080 #ffffff;
+    padding: 6px;
+  }
+  .inset {
+    border: 3px solid;
+    border-color: #808080 #ffffff #ffffff #808080;
+  }
+
+  /* Top bar: counter, face, timer */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px;
+    margin-bottom: 6px;
+    border: 3px solid;
+    border-color: #808080 #ffffff #ffffff #808080;
+  }
+  .lcd {
+    background: #000;
+    color: #ff0000;
+    font-family: "Courier New", monospace;
+    font-weight: bold;
+    font-size: 26px;
+    line-height: 1;
+    padding: 3px 5px;
+    min-width: 56px;
+    text-align: right;
+    letter-spacing: 2px;
+    border: 1px solid #808080;
+  }
+  .face {
+    width: 42px;
+    height: 42px;
+    font-size: 24px;
+    background: #c0c0c0;
+    border: 3px solid;
+    border-color: #ffffff #808080 #808080 #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+  .face:active { border-color: #808080 #ffffff #ffffff #808080; }
+
+  /* The grid */
+  .board {
+    display: grid;
+    gap: 0;
+    background: #808080;
+    touch-action: manipulation;
+  }
+  .cell {
+    width: 30px;
+    height: 30px;
+    font-weight: bold;
+    font-size: 17px;
+    line-height: 1;
+    text-align: center;
+    background: #c0c0c0;
+    border: 3px solid;
+    border-color: #ffffff #808080 #808080 #ffffff;
+    cursor: pointer;
+    user-select: none;
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cell svg { display: block; }
+  .cell.revealed {
+    border: 1px solid #808080;
+    background: #c0c0c0;
+    cursor: default;
+  }
+  .cell.mine-hit { background: #ff0000; }
+
+  /* Classic number colors */
+  .n1 { color: #0000ff; }
+  .n2 { color: #008000; }
+  .n3 { color: #ff0000; }
+  .n4 { color: #000080; }
+  .n5 { color: #800000; }
+  .n6 { color: #008080; }
+  .n7 { color: #000000; }
+  .n8 { color: #808080; }
+
+  /* Flag mode button + difficulty */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+  }
+  .flag-btn {
+    font-family: Verdana, sans-serif;
+    font-size: 15px;
+    font-weight: bold;
+    padding: 10px 16px;
+    background: #c0c0c0;
+    border: 3px solid;
+    border-color: #ffffff #808080 #808080 #ffffff;
+    cursor: pointer;
+    user-select: none;
+  }
+  .flag-btn.active {
+    border-color: #808080 #ffffff #ffffff #808080;
+    background: #ffd6d6;
+  }
+  select {
+    font-family: Verdana, sans-serif;
+    font-size: 14px;
+    padding: 8px;
+    background: #c0c0c0;
+    border: 3px solid;
+    border-color: #ffffff #808080 #808080 #ffffff;
+  }
+  .hint {
+    color: #e0ffff;
+    font-size: 12px;
+    max-width: 360px;
+    text-align: center;
+    line-height: 1.5;
+  }
+  h1 {
+    color: #fff;
+    font-size: 22px;
+    margin: 0 0 4px;
+    text-shadow: 2px 2px 0 #006666;
+  }
+
+  /* Key / legend panel */
+  .legend {
+    background: #c0c0c0;
+    border: 3px solid;
+    border-color: #ffffff #808080 #808080 #ffffff;
+    padding: 12px 14px;
+    max-width: 320px;
+    width: 100%;
+  }
+  .legend h2 {
+    font-size: 14px;
+    margin: 0 0 10px;
+    text-align: center;
+    color: #000;
+  }
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+    font-size: 13px;
+    color: #000;
+  }
+  .legend-icon {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #b8b8b8;
+    border: 1px solid #808080;
+  }
+  .legend-row b { font-weight: bold; }
+  .legend-note {
+    font-size: 11px;
+    color: #444;
+    margin-top: 8px;
+    line-height: 1.5;
+    border-top: 1px solid #999;
+    padding-top: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Asteroid Sweeper</h1>
+
+  <div class="controls">
+    <button id="flagBtn" class="flag-btn">🚩 Flag mode: OFF</button>
+    <select id="difficulty">
+      <option value="small">Small (6×6, 6 mines)</option>
+      <option value="medium">Medium (9×9, 10 mines)</option>
+      <option value="large">Large (12×12, 25 mines)</option>
+    </select>
+  </div>
+
+  <div class="frame">
+    <div class="topbar">
+      <div id="mineCount" class="lcd">010</div>
+      <button id="face" class="face">🙂</button>
+      <div id="timer" class="lcd">000</div>
+    </div>
+    <div class="inset">
+      <div id="board" class="board"></div>
+    </div>
+  </div>
+
+  <p class="hint">
+    Tap a square to reveal it. Each square shows a <b>planet</b> telling you how many
+    asteroids are touching it. Turn on <b>Flag mode</b> to drop red flags on squares you
+    think hide an asteroid. On a computer you can also right-click to flag.
+  </p>
+
+  <div id="legend" class="legend"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const LEVELS = {
+    small:  { rows: 6,  cols: 6,  mines: 6 },
+    medium: { rows: 9,  cols: 9,  mines: 10 },
+    large:  { rows: 12, cols: 12, mines: 25 }
+  };
+
+  // Asteroid = a hidden mine.
+  const ASTEROID = '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 9 L9 4 L15 4 L19 8 L20 14 L16 19 L9 20 L4 15 L5 11 Z" fill="#8a8a8a" stroke="#5f5f5f" stroke-width="1" stroke-linejoin="round"/><circle cx="10" cy="10" r="1.3" fill="#6f6f6f"/><circle cx="14" cy="13" r="1.6" fill="#6f6f6f"/><circle cx="11" cy="15" r="1" fill="#6f6f6f"/></svg>';
+
+  // Each number 1-8 becomes a planet. A planet means "this many asteroids
+  // are touching this square." The first four are the ones you asked for,
+  // in your order. I added four more so numbers 5-8 still have a planet.
+  const PLANETS = {
+    1: { name: "Jupiter", svg: '<svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="10" fill="#d8a26b"/><ellipse cx="12" cy="8" rx="8.6" ry="1.1" fill="#b87a4a"/><ellipse cx="12" cy="12" rx="9.2" ry="1" fill="#caa05f"/><ellipse cx="12" cy="16" rx="8" ry="1.1" fill="#b87a4a"/><ellipse cx="15" cy="13.5" rx="1.9" ry="1.3" fill="#9e3b27"/><circle cx="12" cy="12" r="10" fill="none" stroke="#8a5a33" stroke-width="0.6"/></svg>' },
+    2: { name: "Neptune", svg: '<svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="10" fill="#2f5fd0"/><ellipse cx="12" cy="15" rx="9" ry="1.4" fill="#2349a8"/><ellipse cx="9.5" cy="9" rx="3" ry="2" fill="#5a86e6" opacity="0.7"/><circle cx="12" cy="12" r="10" fill="none" stroke="#1e3a8a" stroke-width="0.6"/></svg>' },
+    3: { name: "Saturn", svg: '<svg viewBox="0 0 24 24" width="24" height="24"><g transform="rotate(-20 12 12)"><ellipse cx="12" cy="12" rx="11.5" ry="3.6" fill="none" stroke="#cdb072" stroke-width="2.2"/><circle cx="12" cy="12" r="7" fill="#e8d28f"/><ellipse cx="10" cy="10" rx="2.5" ry="1.4" fill="#f2e6b8" opacity="0.6"/></g></svg>' },
+    4: { name: "Venus", svg: '<svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="10" fill="#e3cf94"/><ellipse cx="9" cy="9" rx="4" ry="2.4" fill="#f0e3b4" opacity="0.8"/><ellipse cx="14" cy="15" rx="4.5" ry="2.2" fill="#cdb16e" opacity="0.8"/><circle cx="12" cy="12" r="10" fill="none" stroke="#b89a55" stroke-width="0.6"/></svg>' },
+    5: { name: "Mars", svg: '<svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="10" fill="#c1440e"/><ellipse cx="10" cy="13" rx="3" ry="2" fill="#9c3309" opacity="0.8"/><circle cx="12" cy="4.2" r="1.8" fill="#f0e9e0"/><circle cx="12" cy="12" r="10" fill="none" stroke="#8f3208" stroke-width="0.6"/></svg>' },
+    6: { name: "Earth", svg: '<svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="10" fill="#2e74c4"/><path d="M6 9 q3 -2 5 0 q2 2 -1 4 q-3 1 -5 -1 z" fill="#3d9a52"/><path d="M14 13 q3 0 4 3 q-2 2 -4 1 q-2 -2 0 -4 z" fill="#3d9a52"/><circle cx="12" cy="12" r="10" fill="none" stroke="#21568f" stroke-width="0.6"/></svg>' },
+    7: { name: "Uranus", svg: '<svg viewBox="0 0 24 24" width="24" height="24"><ellipse cx="12" cy="12" rx="3.2" ry="11" fill="none" stroke="#bfeae6" stroke-width="1.6"/><circle cx="12" cy="12" r="9" fill="#a8e0dc"/><ellipse cx="10" cy="9" rx="2.5" ry="1.6" fill="#cdf2ef" opacity="0.7"/></svg>' },
+    8: { name: "Mercury", svg: '<svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="10" fill="#9a9a9a"/><circle cx="9" cy="9" r="1.6" fill="#7d7d7d"/><circle cx="15" cy="13" r="2" fill="#7d7d7d"/><circle cx="10" cy="15" r="1.2" fill="#7d7d7d"/><circle cx="12" cy="12" r="10" fill="none" stroke="#6f6f6f" stroke-width="0.6"/></svg>' }
+  };
+
+  const boardEl  = document.getElementById("board");
+  const faceEl   = document.getElementById("face");
+  const flagBtn  = document.getElementById("flagBtn");
+  const diffEl   = document.getElementById("difficulty");
+  const mineCntEl= document.getElementById("mineCount");
+  const timerEl  = document.getElementById("timer");
+
+  let rows, cols, mineTotal;
+  let grid;            // each cell: {mine, revealed, flagged, count}
+  let flagMode = false;
+  let firstClickDone = false;
+  let gameOver = false;
+  let flagsPlaced = 0;
+  let revealedCount = 0;
+  let timer = 0;
+  let timerId = null;
+
+  function pad(n) {
+    if (n < 0) n = 0;
+    return String(n).padStart(3, "0");
+  }
+
+  function startTimer() {
+    if (timerId) return;
+    timerId = setInterval(function () {
+      timer++;
+      if (timer > 999) timer = 999;
+      timerEl.textContent = pad(timer);
+    }, 1000);
+  }
+  function stopTimer() {
+    clearInterval(timerId);
+    timerId = null;
+  }
+
+  function newGame() {
+    const lvl = LEVELS[diffEl.value];
+    rows = lvl.rows;
+    cols = lvl.cols;
+    mineTotal = lvl.mines;
+
+    grid = [];
+    for (let r = 0; r < rows; r++) {
+      const row = [];
+      for (let c = 0; c < cols; c++) {
+        row.push({ mine: false, revealed: false, flagged: false, count: 0 });
+      }
+      grid.push(row);
+    }
+
+    firstClickDone = false;
+    gameOver = false;
+    flagsPlaced = 0;
+    revealedCount = 0;
+    timer = 0;
+    stopTimer();
+    timerEl.textContent = "000";
+    faceEl.textContent = "🙂";
+    mineCntEl.textContent = pad(mineTotal);
+
+    drawBoard();
+  }
+
+  function drawBoard() {
+    boardEl.style.gridTemplateColumns = "repeat(" + cols + ", 30px)";
+    boardEl.innerHTML = "";
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const btn = document.createElement("button");
+        btn.className = "cell";
+        btn.dataset.r = r;
+        btn.dataset.c = c;
+        boardEl.appendChild(btn);
+      }
+    }
+  }
+
+  function cellEl(r, c) {
+    return boardEl.children[r * cols + c];
+  }
+
+  // Place mines AFTER first click, keeping first cell (and neighbors) safe.
+  function placeMines(safeR, safeC) {
+    const safe = new Set();
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const nr = safeR + dr, nc = safeC + dc;
+        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+          safe.add(nr + "," + nc);
+        }
+      }
+    }
+
+    let placed = 0;
+    while (placed < mineTotal) {
+      const r = Math.floor(Math.random() * rows);
+      const c = Math.floor(Math.random() * cols);
+      if (grid[r][c].mine) continue;
+      if (safe.has(r + "," + c)) continue;
+      grid[r][c].mine = true;
+      placed++;
+    }
+
+    // Count neighbor mines
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (grid[r][c].mine) continue;
+        let count = 0;
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            const nr = r + dr, nc = c + dc;
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc].mine) {
+              count++;
+            }
+          }
+        }
+        grid[r][c].count = count;
+      }
+    }
+  }
+
+  function reveal(r, c) {
+    const cell = grid[r][c];
+    if (cell.revealed || cell.flagged) return;
+
+    // Flood fill using a stack so empty areas open up
+    const stack = [[r, c]];
+    while (stack.length) {
+      const [cr, cc] = stack.pop();
+      const cur = grid[cr][cc];
+      if (cur.revealed || cur.flagged) continue;
+
+      cur.revealed = true;
+      revealedCount++;
+      const el = cellEl(cr, cc);
+      el.classList.add("revealed");
+
+      if (cur.mine) {
+        // shouldn't happen here, handled separately
+        continue;
+      }
+      if (cur.count > 0) {
+        el.innerHTML = PLANETS[cur.count].svg;
+        el.title = PLANETS[cur.count].name + " (" + cur.count + " asteroid" + (cur.count > 1 ? "s" : "") + " nearby)";
+      } else {
+        // empty: open all 8 neighbors
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            const nr = cr + dr, nc = cc + dc;
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+              if (!grid[nr][nc].revealed && !grid[nr][nc].flagged) {
+                stack.push([nr, nc]);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  function loseGame(hitR, hitC) {
+    gameOver = true;
+    stopTimer();
+    faceEl.textContent = "😵";
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cell = grid[r][c];
+        const el = cellEl(r, c);
+        if (cell.mine && !cell.flagged) {
+          el.classList.add("revealed");
+          el.innerHTML = ASTEROID;
+        }
+        if (cell.flagged && !cell.mine) {
+          el.textContent = "❌";
+        }
+      }
+    }
+    const hit = cellEl(hitR, hitC);
+    hit.classList.add("mine-hit");
+    hit.textContent = "💥";
+  }
+
+  function checkWin() {
+    const safeCells = rows * cols - mineTotal;
+    if (revealedCount === safeCells) {
+      gameOver = true;
+      stopTimer();
+      faceEl.textContent = "😎";
+      // auto-flag remaining mines
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (grid[r][c].mine && !grid[r][c].flagged) {
+            grid[r][c].flagged = true;
+            cellEl(r, c).textContent = "🚩";
+          }
+        }
+      }
+      flagsPlaced = mineTotal;
+      mineCntEl.textContent = pad(0);
+    }
+  }
+
+  function toggleFlag(r, c) {
+    const cell = grid[r][c];
+    if (cell.revealed) return;
+    cell.flagged = !cell.flagged;
+    const el = cellEl(r, c);
+    if (cell.flagged) {
+      el.textContent = "🚩";
+      flagsPlaced++;
+    } else {
+      el.textContent = "";
+      flagsPlaced--;
+    }
+    mineCntEl.textContent = pad(mineTotal - flagsPlaced);
+  }
+
+  function handleCell(r, c) {
+    if (gameOver) return;
+
+    if (flagMode) {
+      toggleFlag(r, c);
+      return;
+    }
+
+    const cell = grid[r][c];
+    if (cell.flagged) return; // flags protect a square from reveal
+
+    if (!firstClickDone) {
+      placeMines(r, c);
+      firstClickDone = true;
+      startTimer();
+    }
+
+    if (cell.mine) {
+      loseGame(r, c);
+      return;
+    }
+
+    reveal(r, c);
+    checkWin();
+  }
+
+  // --- Events ---
+  boardEl.addEventListener("click", function (e) {
+    const t = e.target.closest(".cell");
+    if (!t) return;
+    handleCell(parseInt(t.dataset.r, 10), parseInt(t.dataset.c, 10));
+  });
+
+  // Right-click flags directly (desktop convenience)
+  boardEl.addEventListener("contextmenu", function (e) {
+    const t = e.target.closest(".cell");
+    if (!t) return;
+    e.preventDefault();
+    if (gameOver) return;
+    toggleFlag(parseInt(t.dataset.r, 10), parseInt(t.dataset.c, 10));
+  });
+
+  flagBtn.addEventListener("click", function () {
+    flagMode = !flagMode;
+    flagBtn.classList.toggle("active", flagMode);
+    flagBtn.textContent = flagMode ? "🚩 Flag mode: ON" : "🚩 Flag mode: OFF";
+  });
+
+  faceEl.addEventListener("click", newGame);
+  diffEl.addEventListener("change", newGame);
+
+  function buildLegend() {
+    const legend = document.getElementById("legend");
+    let html = '<h2>Key</h2>';
+    // Asteroid row
+    html += '<div class="legend-row"><span class="legend-icon">' + ASTEROID +
+            '</span><span><b>Asteroid</b> — a hidden danger. Reveal one and the game ends.</span></div>';
+    // Planet rows, in order 1 through 8
+    for (let n = 1; n <= 8; n++) {
+      const p = PLANETS[n];
+      html += '<div class="legend-row"><span class="legend-icon">' + p.svg +
+              '</span><span><b>' + p.name + '</b> = ' + n +
+              ' asteroid' + (n > 1 ? 's' : '') + ' nearby</span></div>';
+    }
+    html += '<div class="legend-note">You picked the first four planets (Jupiter, ' +
+            'Neptune, Saturn, Venus). Squares can touch up to 8 asteroids, so I added ' +
+            'Mars, Earth, Uranus, and Mercury for 5–8. Tell me if you want different ones.</div>';
+    legend.innerHTML = html;
+  }
+
+  // Start
+  buildLegend();
+  newGame();
+})();
+</script>
+</body>
+</html>
